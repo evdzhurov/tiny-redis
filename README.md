@@ -20,4 +20,11 @@ cmake -S . -B build
 cmake --build build
 ```
 
+To enable AddressSanitizer and UndefinedBehaviorSanitizer during development:
+
+```bash
+cmake -S . -B build-sanitize -DTINYREDIS_ENABLE_SANITIZERS=ON
+cmake --build build-sanitize
+```
+
 Once you begin filling in the TODOs, add tests or integration scripts as needed (e.g. using the real `redis-cli` against your server).

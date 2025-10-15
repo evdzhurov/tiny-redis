@@ -1,0 +1,41 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 19,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default (Debug)",
+      "description": "Debug build without sanitizers",
+      "binaryDir": "${sourceDir}/build/default",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "sanitize",
+      "displayName": "Debug + Sanitizers",
+      "description": "Debug build with Address/UB sanitizers enabled",
+      "binaryDir": "${sourceDir}/build/sanitize",
+      "inherits": [
+        "default"
+      ],
+      "cacheVariables": {
+        "TINYREDIS_ENABLE_SANITIZERS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default"
+    },
+    {
+      "name": "sanitize",
+      "configurePreset": "sanitize"
+    }
+  ]
+}
