@@ -1,11 +1,10 @@
 #include "tinyredis/server.hpp"
 #include "tinyredis/logging.hpp"
 
-#include <iostream>
-#include <stdexcept>
-#include <utility>
-
+#include <fcntl.h>
+#include <netinet/in.h>
 #include <sys/epoll.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 namespace tinyredis
@@ -30,19 +29,42 @@ namespace tinyredis
 
     void Server::setup_listener()
     {
-        // TODO: Create non-blocking TCP socket, configure reuse flags, bind, listen, and register
-        // with epoll/kqueue.
+        // Create non-blocking listen TCP socket
+        listen_fd_ = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+        if (listen_fd_ == -1)
+            LOG_FATAL("Failed to create listen socket!");
 
-        // epoll_create - create epoll instance and return fd
+        int yes = 1;
+        setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+
+        // Bind to the listen address
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = 0; // TODO host address
+        addr.sin_port = config_.port;
+
+        int err = bind(listen_fd_, (sockaddr*)&addr, sizeof(addr));
+        if (err == -1)
+            LOG_FATAL("Failed to bind server address!");
+
+        // Mark socket as 'passive', backlog is the maximum queue depth for pending connections
+        err = listen(listen_fd_, config_.backlog);
+        if (err == -1)
+            LOG_FATAL("Failed to as listen socket!");
+
+        // Create epoll instance
         const int size_hint = 1;
         epoll_fd_ = epoll_create(size_hint);
         if (epoll_fd_ != -1)
-            LOG_FATAL("Failed to create epoll: ", epoll_fd_);
+            LOG_FATAL("Failed to create epoll instance!");
 
-        // epoll_ctl - manipulates the interest list associated with the epoll instance
-        // int err = epoll_ctl(epoll_fd_, int op, int fd, struct epoll_event* event);
+        epoll_event ev{};
+        ev.events = EPOLLIN;
+        ev.data.fd = listen_fd_;
 
-        // epoll_wait - returns items from the ready list of an epoll instance
+        err = epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, listen_fd_, &ev);
+        if (err == -1)
+            LOG_FATAL("Failed to add listen sock to epoll instance!");
     }
 
     void Server::main_loop()

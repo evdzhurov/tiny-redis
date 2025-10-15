@@ -1,8 +1,6 @@
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
-#include <exception>
-#include <functional>
 #include <iostream>
 #include <mutex>
 #include <ostream>
@@ -26,25 +24,25 @@ namespace tinyredis
     {
         switch (logLevel) {
         case LogLevel::Trace:
-            os << "[TRACE]";
+            os << "[TRACE] ";
             break;
         case LogLevel::Debug:
-            os << "[DEBUG]";
+            os << "[DEBUG] ";
             break;
         case LogLevel::Info:
-            os << "[INFO]";
+            os << "[INFO] ";
             break;
         case LogLevel::Warning:
-            os << "[WARN]";
+            os << "[WARN] ";
             break;
         case LogLevel::Error:
-            os << "[ERROR]";
+            os << "[ERROR] ";
             break;
         case LogLevel::Fatal:
-            os << "[FATAL]";
+            os << "[FATAL] ";
             break;
         default:
-            os << "[UNKNOWN]";
+            os << "[UNKNOWN] ";
             break;
         }
 
