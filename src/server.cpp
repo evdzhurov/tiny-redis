@@ -32,7 +32,7 @@ namespace tinyredis
         // Create non-blocking listen TCP socket
         listen_fd_ = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
         if (listen_fd_ == -1)
-            LOG_FATAL("Failed to create listen socket!");
+            LOG_FATAL("Failed to create listen socket! errno: ", errno);
 
         int yes = 1;
         setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
@@ -45,18 +45,17 @@ namespace tinyredis
 
         int err = bind(listen_fd_, (sockaddr*)&addr, sizeof(addr));
         if (err == -1)
-            LOG_FATAL("Failed to bind server address!");
+            LOG_FATAL("Failed to bind server address! errno: ", errno);
 
         // Mark socket as 'passive', backlog is the maximum queue depth for pending connections
         err = listen(listen_fd_, config_.backlog);
         if (err == -1)
-            LOG_FATAL("Failed to as listen socket!");
+            LOG_FATAL("Failed to as listen socket! errno: ", errno);
 
         // Create epoll instance
-        const int size_hint = 1;
-        epoll_fd_ = epoll_create(size_hint);
-        if (epoll_fd_ != -1)
-            LOG_FATAL("Failed to create epoll instance!");
+        epoll_fd_ = epoll_create1(0);
+        if (epoll_fd_ == -1)
+            LOG_FATAL("Failed to create epoll instance! errno: ", errno);
 
         epoll_event ev{};
         ev.events = EPOLLIN;
@@ -64,7 +63,7 @@ namespace tinyredis
 
         err = epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, listen_fd_, &ev);
         if (err == -1)
-            LOG_FATAL("Failed to add listen sock to epoll instance!");
+            LOG_FATAL("Failed to add listen sock to epoll instance! errno: ", errno);
     }
 
     void Server::main_loop()
