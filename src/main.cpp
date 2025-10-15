@@ -3,7 +3,8 @@
 
 #include "tinyredis/server.hpp"
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     using namespace tinyredis;
 
     ServerConfig config{};
@@ -12,13 +13,18 @@ int main(int argc, char** argv) {
 
     // TODO: Parse CLI flags (e.g. --port, --bind, --verbosity) into config.
 
-    try {
+    try
+    {
         Server server{config};
         server.run();
-    } catch (const std::exception& ex) {
+    }
+    catch (const std::exception& ex)
+    {
         std::cerr << "[TinyRedis] fatal error: " << ex.what() << '\n';
         return 1;
-    } catch (...) {
+    }
+    catch (...)
+    {
         std::cerr << "[TinyRedis] fatal error: unknown exception\n";
         return 2;
     }
