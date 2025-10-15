@@ -76,6 +76,7 @@ namespace tinyredis
         std::vector<epoll_event> events(config_.epoll_max_events);
 
         for (;;) {
+            // TODO: Handle -1
             int n = epoll_wait(epoll_fd_, events.data(), config_.epoll_max_events, -1);
             for (int i = 0; i < n; ++i) {
                 if (events[i].data.fd == listen_fd_) {
@@ -143,6 +144,7 @@ namespace tinyredis
 
     void Server::close_connection(int fd)
     {
+        // TODO: Investigate making the errors recoverable
         int err = epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
         if (err == -1)
             LOG_FATAL("Failed to remove client ", fd, " from epoll instance!");
