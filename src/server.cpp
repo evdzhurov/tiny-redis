@@ -1,6 +1,9 @@
 #include "tinyredis/server.hpp"
 #include "tinyredis/logging.hpp"
 
+#include <arpa/inet.h>
+#include <cerrno>
+#include <cstddef>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/epoll.h>
@@ -40,8 +43,8 @@ namespace tinyredis
         // Bind to the listen address
         sockaddr_in addr{};
         addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = 0; // TODO host address
-        addr.sin_port = config_.port;
+        addr.sin_port = htons(config_.port);
+        inet_pton(AF_INET, config_.host.c_str(), &addr.sin_addr);
 
         int err = bind(listen_fd_, (sockaddr*)&addr, sizeof(addr));
         if (err == -1)
@@ -64,18 +67,64 @@ namespace tinyredis
         err = epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, listen_fd_, &ev);
         if (err == -1)
             LOG_FATAL("Failed to add listen sock to epoll instance! errno: ", errno);
+
+        LOG_INFO("TinyRedis server listening on ", config_.host, ":", config_.port, " ...");
     }
 
     void Server::main_loop()
     {
-        // TODO: Implement edge-triggered epoll (or select/poll) event loop.
-        throw std::logic_error("main_loop() is not yet implemented");
+        std::vector<epoll_event> events(config_.epoll_max_events);
+
+        for (;;) {
+            int n = epoll_wait(epoll_fd_, events.data(), config_.epoll_max_events, -1);
+            for (int i = 0; i < n; ++i) {
+                if (events[i].data.fd == listen_fd_) {
+                    accept_connections();
+                }
+                else {
+                    if (events[i].events & (EPOLLHUP | EPOLLERR)) {
+                        close_connection(events[i].data.fd);
+                    }
+                    else if (events[i].events & EPOLLIN) {
+                        char buf[1024];
+                        ssize_t n = read(events[i].data.fd, buf, sizeof(buf));
+                        if (n == 0) {
+                            close_connection(events[i].data.fd);
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    void Server::accept_connection()
+    void Server::accept_connections()
     {
-        // TODO: Accept new clients, set sockets non-blocking, and add to epoll interest list.
-        throw std::logic_error("accept_connection() is not yet implemented");
+        for (;;) {
+            sockaddr_in client_addr{};
+            socklen_t addr_len = sizeof(client_addr);
+
+            // Accept client connection
+            auto client_fd = accept4(listen_fd_, (sockaddr*)&client_addr, &addr_len,
+                                     SOCK_NONBLOCK | SOCK_CLOEXEC);
+
+            if (client_fd < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK)
+                    break;
+
+                LOG_ERROR("Error accepting connection: ", errno);
+                break; // TODO: Should this be 'continue'?
+            }
+
+            // Add client fd to epoll instance
+            epoll_event client_ev{};
+            client_ev.events = EPOLLIN;
+            client_ev.data.fd = client_fd;
+            epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, client_fd, &client_ev);
+
+            clients_.emplace(client_fd, ClientState{client_fd});
+
+            LOG_INFO("Client ", client_fd, " connected. Clients: ", clients_.size());
+        }
     }
 
     void Server::handle_readable(int fd)
@@ -94,9 +143,17 @@ namespace tinyredis
 
     void Server::close_connection(int fd)
     {
-        // TODO: Ensure the socket is deregistered from epoll and closed.
+        int err = epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
+        if (err == -1)
+            LOG_FATAL("Failed to remove client ", fd, " from epoll instance!");
+
+        err = close(fd);
+        if (err == -1)
+            LOG_FATAL("Failed to close client ", fd);
+
         clients_.erase(fd);
-        (void)fd;
+
+        LOG_INFO("Closed connection ", fd, " Clients: ", clients_.size());
     }
 
     void Server::process_client_buffer(ClientState& client)

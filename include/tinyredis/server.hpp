@@ -29,7 +29,7 @@ namespace tinyredis
         std::string host{"127.0.0.1"};
         std::uint16_t port{6379};
         int backlog{128};
-        int epoll_max_events{64};
+        int epoll_max_events{128};
         bool verbose_logging{false};
 
         // TODO: Add configuration for timeouts and persistence (AOF/RDB).
@@ -49,7 +49,7 @@ namespace tinyredis
       private:
         void setup_listener();
         void main_loop();
-        void accept_connection();
+        void accept_connections();
         void handle_readable(int fd);
         void handle_writable(int fd);
         void close_connection(int fd);

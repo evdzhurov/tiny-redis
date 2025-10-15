@@ -8,6 +8,8 @@
 
 namespace tinyredis
 {
+#define LOG_INFO(...) log(LogLevel::Info, __VA_ARGS__)
+#define LOG_ERROR(...) log(LogLevel::Error, __VA_ARGS__)
 #define LOG_FATAL(...) log(LogLevel::Fatal, __VA_ARGS__)
 
     enum class LogLevel : uint8_t
