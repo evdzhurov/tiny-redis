@@ -3,7 +3,6 @@
 
 #include <arpa/inet.h>
 #include <cerrno>
-#include <cstddef>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/epoll.h>
@@ -20,7 +19,22 @@ namespace tinyredis
 
     Server::~Server()
     {
-        // TODO: Close sockets and flush persistence buffers safely.
+        // TODO: Clean shutdown - add wake_fd_ to wake up epoll
+        // TODO: flush persistence buffers safely.
+        // TODO: Errors logs on shutdown?
+        if (epoll_fd_ <= 0)
+            return;
+
+        if (listen_fd_ > 0) {
+            epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, listen_fd_, nullptr);
+            close(listen_fd_);
+        }
+
+        for (const auto& client : clients_) {
+            epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, client.first, nullptr);
+            close(client.first);
+        }
+
         close(epoll_fd_);
     }
 
@@ -120,7 +134,12 @@ namespace tinyredis
             epoll_event client_ev{};
             client_ev.events = EPOLLIN;
             client_ev.data.fd = client_fd;
-            epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, client_fd, &client_ev);
+            auto err = epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, client_fd, &client_ev);
+            if (err == -1) {
+                LOG_ERROR("Failed to add client ", client_fd, " to epoll - dropping! err: ", errno);
+                close(client_fd);
+                continue;
+            }
 
             clients_.emplace(client_fd, ClientState{client_fd});
 
